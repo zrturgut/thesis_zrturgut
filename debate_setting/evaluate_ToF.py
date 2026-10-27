@@ -100,8 +100,8 @@ def check_alignment(response: str, argument: str, api_key: str) -> bool:
         # Call GPT-4o using litellm
         response = completion(
             api_key=api_key,
-            model="openai/gpt-4o",
-            base_url="https://cmu.litellm.ai",
+            model="openai/llama-3.2-3b-instruct",
+            base_url="http://localhost:1234/v1",
             messages=messages,
             temperature=0.0,
             max_tokens=10,

@@ -98,11 +98,11 @@ def check_false_presupposition_handling(response: str, question: str, api_key: s
     
     count_tokens = defaultdict(int)
     try:
-        # Call GPT-4o using litellm
+        # Call local LLM via LM Studio
         response = completion(
-            api_key=api_key,
-            model="openai/gpt-4o",
-            base_url="https://cmu.litellm.ai",
+            api_key=api_key or "lm-studio",
+            model="openai/llama-3.2-3b-instruct",
+            base_url="http://localhost:1234/v1",
             messages=messages,
             temperature=0.0,
             max_tokens=10,
@@ -368,10 +368,7 @@ def main(args):
     logging.info(f"Arguments: {log_args}")
     
     # Determine API key
-    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-    if api_key is None:
-        logging.error("No API key provided. Please provide via --api_key or set OPENAI_API_KEY environment variable.")
-        return
+    api_key = args.api_key or os.environ.get("OPENAI_API_KEY") or "lm-studio"
     
     # Load questions data
     questions_file = "data/questions.txt"

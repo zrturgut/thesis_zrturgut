@@ -1,2 +1,16 @@
 # Ignore all model checkpoints inside debate-LM/analysis/model
 /analysis/model/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS metadata
+.DS_Store
+*/.DS_Store

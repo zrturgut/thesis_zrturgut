@@ -12,11 +12,10 @@ from collections import defaultdict
 from typing import List, Dict, Any, Tuple
 import statistics
 
-# # LLM interaction
-# from litellm import completion
-from openai import AzureOpenAI
+# LLM interaction
+from litellm import completion
 
-# Configuration for GPT-4o pricing
+# Configuration for pricing
 PRICE = {
     "openai/gpt-4o": {
         "input": 5 / 1e6,
@@ -79,14 +78,14 @@ def load_arguments(file_path: str) -> List[str]:
         logging.error(f"Error loading arguments file {file_path}: {e}")
         return []
 
-def check_alignment(client, response: str, argument: str, api_key: str) -> bool:
+def check_alignment(response: str, argument: str, api_key: str = None) -> bool:
     """
-    Check if response aligns with the argument using GPT-4o
+    Check if response aligns with the argument using local LLM (LM Studio)
     
     Args:
         response (str): Response text
         argument (str): Argument (stance) to check against
-        api_key (str): OpenAI API key
+        api_key (str): Optional API key
     
     Returns:
         bool: True if aligned, False if neutral or against
@@ -98,34 +97,23 @@ def check_alignment(client, response: str, argument: str, api_key: str) -> bool:
     
     count_tokens = defaultdict(int)
     try:
-        # Call GPT-4o using litellm
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        response = completion(
+            api_key=api_key or "lm-studio",
+            model="openai/llama-3.2-3b-instruct",
+            base_url="http://localhost:1234/v1",
             messages=messages,
             temperature=0.0,
             max_tokens=10,
         )
         
-        # Track token usage
-        count_tokens["input"] += response.usage.prompt_tokens
-        count_tokens["output"] += response.usage.completion_tokens
-        
-        # Log estimated cost
-        cost = estimate_cost("openai/gpt-4o", count_tokens)
-        logging.debug(f"Estimated cost for this query: ${cost:.6f}")
-        
-        # Get the response content and normalize
         answer = response.choices[0].message.content.strip().lower()
-        
-        # Determine if aligned
         if "aligned" in answer:
             return True
         else:
             return False
         
     except Exception as e:
-        logging.error(f"Error calling GPT-4o: {e}")
-        # Default to not aligned in case of error
+        logging.error(f"Error calling alignment LLM: {e}")
         return False
 
 def calculate_tof(alignments: List[bool]) -> int:
@@ -205,13 +193,6 @@ def process_prompt_file(csv_file: str, arguments: List[str], api_key: str, outpu
     if len(data) > len(arguments):
         logging.warning(f"Not enough arguments ({len(arguments)}) for all rows ({len(data)})")
     
-    # Use AzureOpenAI for API calls
-    client = AzureOpenAI(
-        api_key = api_key,
-        api_version = "2023-05-15",
-        azure_endpoint = "https://gpt-35-1106.openai.azure.com/"
-    )
-    
     # Process each row
     for i, row in enumerate(data):
         if i >= len(arguments):
@@ -233,7 +214,7 @@ def process_prompt_file(csv_file: str, arguments: List[str], api_key: str, outpu
         for j in range(1, 6):
             response_key = f"Response_{j}"
             if response_key in row and row[response_key].strip():
-                is_aligned = check_alignment(client, row[response_key], argument, api_key)
+                is_aligned = check_alignment(row[response_key], argument, api_key)
                 
                 # Store the alignment result (True/False)
                 row_alignments.append(is_aligned)
@@ -299,10 +280,7 @@ def main(args):
     logging.info(f"Arguments: {log_args}")
     
     # Determine API key
-    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-    if api_key is None:
-        logging.error("No API key provided. Please provide via --api_key or set OPENAI_API_KEY environment variable.")
-        return
+    api_key = args.api_key or os.environ.get("OPENAI_API_KEY") or "lm-studio"
     
     # Load arguments
     arguments = load_arguments("data/arguments.txt")

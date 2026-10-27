@@ -344,7 +344,7 @@ class ModelFactory:
     @staticmethod
     def create_model(model_name, api_key=None, base_url=None):
         """Create and return the appropriate model instance based on model name."""
-        if model_name.startswith(("openai/", "anthropic/", "claude")):
+        if base_url or model_name.startswith(("openai/", "anthropic/", "claude")):
             return ClosedModel(model_id=model_name, api_key=api_key, base_url=base_url)
         else:
             return OpenModel(model_name=model_name)

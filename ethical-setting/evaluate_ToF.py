@@ -13,8 +13,8 @@ from typing import List, Dict, Any, Tuple
 import statistics
 from tqdm import tqdm
 
-# # LLM interaction
-# from litellm import completion
+# LLM interaction
+from litellm import completion
 from openai import AzureOpenAI
 
 # Configuration for GPT-4o pricing
@@ -61,7 +61,7 @@ def load_csv_data(file_path: str) -> List[Dict]:
         logging.error(f"Error loading CSV file {file_path}: {e}")
         return []
 
-def check_ethical_handling(client, response: str, question: str, stereotype: str) -> bool:
+def check_ethical_handling(client, response: str, question: str, stereotype: str, api_key: str = "lm-studio") -> bool:
     """
     Check if response identifies the ethical problem in the question
     
@@ -97,21 +97,23 @@ def check_ethical_handling(client, response: str, question: str, stereotype: str
     count_tokens = defaultdict(int)
     try:
         # # Call GPT-4o using litellm
-        # response = completion(
-        #     api_key=api_key,
-        #     model="openai/gpt-4o",
-        #     base_url="https://cmu.litellm.ai",
-        #     messages=messages,
-        #     temperature=0.0,
-        #     max_tokens=10,
-        # )
-        
-        response = client.chat.completions.create(
-            model="gpt-4o",
+                # Call LM Studio using litellm
+        response = completion(
+            api_key=api_key,
+            model="openai/llama-3.2-3b-instruct",
+            base_url="http://localhost:1234/v1",
             messages=messages,
             temperature=0.0,
             max_tokens=10,
         )
+
+        
+        #response = client.chat.completions.create(
+        #    model="gpt-4o",
+        #    messages=messages,
+        #    temperature=0.0,
+        #    max_tokens=10,
+        #)
         
         # Track token usage
         count_tokens["input"] += response.usage.prompt_tokens
@@ -195,7 +197,8 @@ def process_prompt_file(csv_file: str, api_key: str, output_file: str, all_resul
     
     questions = []
     for row in data:
-        questions.append(row.get("Question", "").strip())
+        q = row.get("Question") or row.get("question") or ""
+        questions.append(q.strip())
     
     # Load stereoset data once
     stereoset_data = []
@@ -297,8 +300,8 @@ def process_prompt_file(csv_file: str, api_key: str, output_file: str, all_resul
         
         # Check each response column
         for j in range(1, 6):
-            response_key = f"Response_{j}"
-            if response_key in row and row[response_key].strip():
+            response_key = f"Response_{j}" if f"Response_{j}" in row else f"response{j}"
+            if response_key in row and row[response_key] and row[response_key].strip():
                 # If we already found a flip, don't evaluate further responses
                 if first_flip_found:
                     # Mark remaining responses as not evaluated but count as failed (0)
@@ -306,7 +309,7 @@ def process_prompt_file(csv_file: str, api_key: str, output_file: str, all_resul
                     continue
                     
                 # Only evaluate if we haven't found a flip yet
-                identified_presupposition = check_ethical_handling(client, row[response_key], question, stereotype)
+                identified_presupposition = check_ethical_handling(client, row[response_key], question, stereotype, api_key)
                 
                 # Store result (1 for identified, 0 for not identified)
                 evaluation_value = 1 if identified_presupposition else 0
@@ -373,10 +376,7 @@ def main(args):
     logging.info(f"Arguments: {log_args}")
     
     # Determine API key
-    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-    if api_key is None:
-        logging.error("No API key provided. Please provide via --api_key or set OPENAI_API_KEY environment variable.")
-        return
+    api_key = args.api_key or os.environ.get("OPENAI_API_KEY") or "lm-studio"
     
     # Set up file paths based on model_name
     model_name = args.model_name
@@ -419,6 +419,11 @@ def main(args):
     
     for i, prompt_info in enumerate(prompt_files, 1):
         csv_file = prompt_info['file']
+        if not os.path.isfile(csv_file) and i == 1:
+            alt_file = os.path.join(input_dir, "results.csv")
+            if os.path.isfile(alt_file):
+                csv_file = alt_file
+
         logging.info(f"Processing prompt file {i}: {csv_file}")
         
         # Check if file exists

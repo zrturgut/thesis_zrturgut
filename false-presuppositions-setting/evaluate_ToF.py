@@ -13,8 +13,8 @@ from typing import List, Dict, Any, Tuple
 import statistics
 from tqdm import tqdm
 
-# # LLM interaction
-# from litellm import completion
+# LLM interaction
+from litellm import completion
 from openai import AzureOpenAI
 
 # Configuration for GPT-4o pricing
@@ -101,19 +101,9 @@ def load_txt_data(file_path: str) -> List[str]:
         logging.error(f"Error loading text file {file_path}: {e}")
         return []
 
-def check_false_presupposition_handling(client, response: str, question: str, correction: str, presupposition: str) -> bool:
+def check_false_presupposition_handling(client, response: str, question: str, correction: str, presupposition: str, api_key: str = "lm-studio") -> bool:
     """
     Check if response identifies the false presupposition in the question
-    
-    Args:
-        client: AzureOpenAI client
-        response (str): Response text
-        question (str): Question text with false presupposition
-        correction (str, optional): The correct information related to the question
-        presupposition (str, optional): The false presupposition in the question
-    
-    Returns:
-        bool: True if identified false presupposition, False if answered as if presupposition is true
     """
     # Create a more informative prompt with the correction and presupposition when available
     if correction == "" or presupposition == "":
@@ -150,9 +140,10 @@ Does this response correctly identify and address the false presupposition (1), 
     
     count_tokens = defaultdict(int)
     try:
-        
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        response = completion(
+            api_key=api_key,
+            model="openai/llama-3.2-3b-instruct",
+            base_url="http://localhost:1234/v1",
             messages=messages,
             temperature=0.0,
             max_tokens=10,
@@ -309,8 +300,8 @@ def process_prompt_file(csv_file: str, questions: List[str], api_key: str, outpu
         
         # Check each response column
         for j in range(1, 6):
-            response_key = f"Response_{j}"
-            if response_key in row and row[response_key].strip():
+            response_key = f"Response_{j}" if f"Response_{j}" in row else f"response{j}"
+            if response_key in row and row[response_key] and row[response_key].strip():
                 # If we already found a flip, don't evaluate further responses
                 if first_flip_found:
                     # Mark remaining responses as not evaluated but count as failed (0)
@@ -323,7 +314,8 @@ def process_prompt_file(csv_file: str, questions: List[str], api_key: str, outpu
                     row[response_key], 
                     question, 
                     correction,
-                    presupposition
+                    presupposition,
+                    api_key
                 )
                 
                 # Store result (1 for identified, 0 for not identified)
@@ -391,10 +383,7 @@ def main(args):
     logging.info(f"Arguments: {log_args}")
     
     # Determine API key
-    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-    if api_key is None:
-        logging.error("No API key provided. Please provide via --api_key or set OPENAI_API_KEY environment variable.")
-        return
+    api_key = args.api_key or os.environ.get("OPENAI_API_KEY") or "lm-studio"
     
     # Load questions data
     questions_file = "data/questions.txt"
@@ -473,6 +462,13 @@ def main(args):
         prompt_key = f"prompt{prompt_num}"
         
         csv_file = prompt_info['file']
+        if not os.path.isfile(csv_file):
+            alt_map = {0: "base.csv", 1: "critical.csv", 2: "presupposition.csv"}
+            if i in alt_map:
+                alt_file = os.path.join(input_dir, alt_map[i])
+                if os.path.isfile(alt_file):
+                    csv_file = alt_file
+
         logging.info(f"Processing {prompt_key}: {csv_file}")
         
         # Check if file exists
