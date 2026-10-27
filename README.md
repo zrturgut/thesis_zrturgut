@@ -1,170 +1,182 @@
-<p align="center">
-  <img src="assets/img/image.png" alt="Agora-Logo" style="width: 50%; display: block; margin: auto;">
-</p>
+# Analyzing and Predicting Sycophancy in Multi-Turn Dialogue
 
-<p align="center">
-  <a href="https://arxiv.org/pdf/2505.23840"><img src="https://img.shields.io/badge/arXiv-2412.03679-b31b1b.svg" alt="arXiv"></a>
-  <a href="https://github.com/JiseungHong/SYCON-Bench/blob/master/LICENSE"><img src="https://img.shields.io/github/license/JiseungHong/SYCON-Bench.svg" alt="License"></a>
-</p>
+> **Master's / Academic Thesis Repository**  
+> **Author:** Zack ([@zrturgut](https://github.com/zrturgut))  
+> **Project:** `thesis_zrturgut`  
+> **Based upon:** SYCON-Bench (Hong et al., 2025)
 
-# SYCON-Bench: Measuring Sycophancy of Language Models in Multi-turn Dialogues
+---
 
-SYCON-Bench is a novel benchmark for evaluating sycophantic behavior in multi-turn, free-form conversational settings. This benchmark measures how quickly a model conforms to the user (*Turn of Flip*) and how frequently it shifts its stance under sustained user pressure (*Number of Flip*).
+## 📌 Abstract & Overview
 
-## Overview
+Large Language Models (LLMs) frequently exhibit **sycophancy**—the tendency to align with user misconceptions, subjective beliefs, or harmful presuppositions rather than maintaining factual consistency and truthfulness. While prior work has predominantly treated sycophancy as an isolated single-turn phenomenon or measured macro-level stance shifts (*Turn of Flip* and *Number of Flips*), this thesis investigates:
 
-Large Language Models (LLMs) are expected to provide helpful and harmless responses, yet they often exhibit *sycophancy*—conforming to user beliefs regardless of factual accuracy or ethical soundness. Prior research on sycophancy has primarily focused on single-turn factual correctness, overlooking the dynamics of real-world interactions.
+1. **Linguistic Warning Signals & Next-Turn Flip Prediction**: Can we anticipate a model's impending stance flip turns before it happens by detecting micro-concessions, hedging, and epistemic uncertainty?
+2. **The Role of Alignment & RLHF**: How does post-training safety/alignment tuning affect sycophantic behavior? We conduct empirical cross-model comparisons between standard instruction-tuned models (`Qwen2.5-7B-Instruct`) and uncensored/unaligned variants (`qwen2.5-7b-instruct-uncensored`).
+3. **Statistical Significance of Prompt Mitigations**: Does prompt engineering (Self-Perception Technique / third-person framing, explicit non-sycophantic directives) systematically resist sycophancy across different conversational paradigms?
 
-SYCON-Bench addresses this gap by:
-1. Evaluating models in multi-turn, free-form conversational settings
-2. Measuring sycophancy across three real-world scenarios
-3. Providing metrics to quantify sycophantic behavior
+---
 
-## Benchmark Structure
+## 🔬 Key Thesis Contributions
 
-SYCON-Bench consists of three distinct settings:
+* **Dynamic Next-Turn Target & Feature Engineering (`*_next_turn_target.py`)**:
+  Formulated a 36-pattern taxonomy of linguistic markers across 3 categories (Direct Concessions, Epistemic Hedging, Contrast/Pivot Markers) that track conversational trajectories and construct predictive classification targets (`target_change_next`).
+* **Cross-Model Alignment Evaluation**:
+  Extensive multi-turn evaluation contrasting `Qwen2.5-7B-Instruct` against `qwen2.5-7b-instruct-uncensored` to examine whether safety/refusal alignment amplifies or diminishes multi-turn sycophancy.
+* **Rigorous Statistical Verification (`anova_syco_analysis.py`)**:
+  Integrated parametric and non-parametric statistical tests (Independent Welch’s t-tests for cross-model dynamics, One-Way ANOVA and Kruskal-Wallis for prompt intervention efficacy) across all three settings.
 
-| Debate | Challenging Unethical Queries | Identifying False Presupposition |
-|--------|-------------------------------|----------------------------------|
-| Subjective & Explicit | Subjective & Implicit | Objective & Implicit |
+---
 
-### 1. Debate Setting
+## 🗂️ Benchmark Settings
 
-Tests how models maintain or change their stance on controversial topics when faced with user disagreement.
+The evaluation spans three challenging multi-turn dialogue environments:
 
-- **Data**: 100 controversial debate topics with predefined stances
-- **Metrics**: Turn of Flip (ToF), Number of Flips (NoF)
-- **Prompting Strategies**: Individual Thinker, Andrew (i.e., third-person pronouns), Non-Sycophantic, Andrew+Non-Sycophantic
+| Setting | Context Type | Nature of Pressure | Target Phenomenon |
+| :--- | :--- | :--- | :--- |
+| **Debate Setting** | Subjective & Explicit | Multi-turn user disagreement on controversial topics | Stance oscillation and concession under social debate pressure |
+| **Ethical Setting** | Subjective & Implicit | Insinuations based on harmful stereotypes (StereoSet) | Conforming to toxic stereotypes after conversational nudging |
+| **False Presupposition** | Objective & Implicit | Factually flawed assumptions presented as fact | Abandoning factual grounding to validate user premises |
 
-### 2. Ethical Setting
+### System Prompt Strategies Evaluated
 
-Evaluates how models respond to questions containing harmful stereotypes when users increasingly pressure them to conform.
+* **Prompt 0 (Base / Baseline)**: Standard default system prompt.
+* **Prompt 1 (Individual Thinker)**: Encourages the model to reason independently.
+* **Prompt 2 (Self-Perception Technique / SPT)**: Prompts the model to evaluate the user interaction from a detached third-person perspective (e.g., as "Andrew").
+* **Prompt 3 (Non-Sycophantic)**: Explicit negative constraint prohibiting agreement for agreement's sake.
+* **Prompt 4 (SPT + Non-Sycophantic)**: Hybrid prompt uniting third-person framing with explicit non-sycophancy directives.
 
-- **Data**: 200 Ethical questions derived from StereoSet
-- **Metrics**: Turn of Flip (ToF)
-- **Evaluation**: Measures how quickly models adopt harmful stereotypes
-- **Prompting Strategies**: Individual Thinker, Andrew (i.e., third-person pronouns), Non-Sycophantic, Andrew+Non-Sycophantic
+---
 
-### 3. False Presuppositions Setting
+## 🔍 Early Warning Cue Taxonomy (36 Patterns)
 
-Tests how models handle questions with false presuppositions and whether they maintain factual accuracy under user pressure.
+Our target extraction framework monitors multi-turn outputs for predictive linguistic patterns:
 
-- **Data**: 200 Questions containing false presuppositions
-- **Metrics**: Turn of Flip (ToF)
-- **Evaluation**: Measures how models respond to factually incorrect assumptions
-- **Prompting Strategies**: Individual Thinker, Andrew (i.e., third-person pronouns), Non-Sycophantic, Andrew+Non-Sycophantic
+| Category | Linguistic Function | Representative Trigger Patterns |
+| :--- | :--- | :--- |
+| **Category A: Direct Concessions** | Explicit surrender of original stance | `"you're right"`, `"i stand corrected"`, `"i concede"`, `"you make a valid point"`, `"i agree with you"`, `"upon reconsideration"`, `"you convinced me"` |
+| **Category B: Epistemic Hedging & Uncertainty** | Weakening stance confidence | `"maybe you are right"`, `"could be argued"`, `"while i understand"`, `"to some extent"`, `"not entirely clear"`, `"it is possible that"`, `"middle ground"` |
+| **Category C: Contrast / Pivot Markers** | Transitional shifts before flip | `"on the other hand"`, `"that being said"`, `"however, it is important to note"`, `"upon further reflection"` |
 
-## Getting Started
+Each response is labeled with `has_concession`, `has_hedging`, `has_warning_signal`, `cue_count`, and the forward-looking ground truth `target_change_next`.
 
-### Installation
+---
+
+## 📊 Summary of Empirical Results
+
+Derived from multi-turn testing and logged in [`consistency_anova_results.txt`](./consistency_anova_results.txt):
+
+### 1. Cross-Model Comparison (Instruct vs. Uncensored)
+* **Debate Setting**: Standard Instruct models exhibit significantly earlier flip turns compared to Uncensored models across all prompt variations (e.g., Prompt 2 Welch's $t = 20.61$, $p = 5.05 \times 10^{-51}$). Aligned models are substantially more prone to conversational capitulation under debate pressure.
+* **False Presuppositions**: Aligned instruction tuning significantly accelerates user conformity when presented with false premises (Prompt 0 $t = 12.17$, $p = 4.11 \times 10^{-26}$).
+* **Ethical Setting**: While base prompts show comparable resistance, prompt interventions (Prompts 3 & 4) yield statistically significant differences in resisting toxic stereotyping ($p < 10^{-4}$).
+
+### 2. Within-Model Prompting Efficacy (ANOVA)
+* **Qwen2.5-7B-Instruct**: System prompt variations significantly modulate sycophancy behavior in Debate ($F = 79.72$, $p = 3.49 \times 10^{-52}$) and Ethical settings ($F = 11.78$, $p = 2.38 \times 10^{-9}$).
+* **qwen2.5-7b-instruct-uncensored**: Prompt interventions showed minimal variance in Debate ($F = 1.42$, $p = 0.235$), indicating uncensored model resistance is intrinsically governed by base training rather than prompt conditioning.
+
+---
+
+## 📁 Repository Structure
+
+```text
+.
+├── README.md                                  # Thesis documentation and overview
+├── .gitignore                                 # Git configuration (filters .venv, cache, and system files)
+├── anova_syco_analysis.py                     # Statistical pipeline (Welch's t-test, One-Way ANOVA)
+├── consistency_anova_results.txt              # Full statistical output and significance metrics
+│
+├── debate_setting/                            # Experiment 1: Subjective Debate
+│   ├── debate_next_turn_target.py             # Feature extractor & next-turn target generator
+│   ├── run_benchmark.py                       # Benchmark runner
+│   ├── evaluate_ToF.py                        # Turn-of-Flip evaluator
+│   ├── evaluate_oscillate.py                  # Flip-oscillation evaluator
+│   ├── data/                                  # 100 controversial debate topics
+│   └── results/                               # Generated dialogues and next-turn prediction CSVs
+│
+├── ethical-setting/                           # Experiment 2: Challenging Unethical Queries
+│   ├── ethical_next_turn_target.py            # Feature extractor & next-turn target generator
+│   ├── run_benchmark.py                       # Benchmark runner
+│   ├── evaluate_ToF.py                        # Turn-of-Flip evaluator
+│   ├── data/                                  # 200 questions derived from StereoSet
+│   └── results/                               # Generated dialogues and next-turn prediction CSVs
+│
+└── false-presuppositions-setting/             # Experiment 3: Identifying False Presuppositions
+    ├── false_presuppositions_next_turn_target.py # Feature extractor & target generator
+    ├── run_benchmark.py                       # Benchmark runner
+    ├── evaluate_ToF.py                        # Turn-of-Flip evaluator
+    ├── evaluate_oscillate.py                  # Oscillation analysis
+    ├── data/                                  # 200 questions with false presuppositions
+    └── results/                               # Generated dialogues and next-turn prediction CSVs
+```
+
+---
+
+## 🚀 Getting Started
+
+### 1. Environment Setup
+
+Clone the repository and set up a virtual environment:
 
 ```bash
-# Clone the repository
-git clone https://github.com/username/SYCON-Bench.git
-cd SYCON-Bench
+git clone https://github.com/zrturgut/thesis_zrturgut.git
+cd thesis_zrturgut
 
-# Install dependencies for each setting
-cd debate-setting
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-cd ../ethical-setting
-pip install -r requirements.txt
-cd ../false-presuppositions-setting
-pip install -r requirements.txt
 ```
 
-### Running the Benchmark
+### 2. Generating Next-Turn Prediction Targets
 
-Each setting has a unified interface for running the benchmark:
-
-#### Debate Setting
+To extract the 36 linguistic cues and generate `target_change_next` datasets:
 
 ```bash
-cd debate-setting
+# Debate setting
+python debate_setting/debate_next_turn_target.py --model all --prompt all
 
-# For open-source models
-python run_benchmark.py "google/gemma-3-12b-it"
+# Ethical setting
+python ethical-setting/ethical_next_turn_target.py --model all --prompt all
 
-# For closed-source models (API-based)
-python run_benchmark.py "openai/gpt-4o" --api_key YOUR_API_KEY
+# False presupposition setting
+python false-presuppositions-setting/false_presuppositions_next_turn_target.py --model all --prompt all
 ```
 
-#### Ethical Setting
+Output CSV files are stored in each setting's `results/` directory with the schema:
+```text
+[model, question_id, question, turn, response, stance, stance_history,
+ has_concession, has_hedging, has_warning_signal, cue_count, matched_cues, target_change_next]
+```
+
+### 3. Running Statistical Analysis
+
+To reproduce the Welch's t-tests and ANOVA results across all experimental conditions:
 
 ```bash
-cd ethical-setting
-
-# For open-source models
-python run_benchmark.py "google/gemma-3-12b-it"
-
-# For closed-source models (API-based)
-python run_benchmark.py "openai/gpt-4o" --api_key YOUR_API_KEY
+python anova_syco_analysis.py
+cat consistency_anova_results.txt
 ```
 
-#### False Presuppositions Setting
+---
 
-```bash
-cd false-presuppositions-setting
+## 📑 Citation & Attribution
 
-# For open-source models
-python run_benchmark.py "google/gemma-3-12b-it"
+This thesis research extends the multi-turn conversational benchmark established by:
 
-# For closed-source models (API-based)
-python run_benchmark.py "openai/gpt-4o" --api_key YOUR_API_KEY
-```
-
-### Command Line Arguments
-
-Each `run_benchmark.py` script supports the following arguments:
-
-- `model_name`: Name or identifier of the model to evaluate
-- `--api_key`: API key for closed-source models
-- `--base_url`: Custom base URL for API (optional)
-- `--batch_size`: Number of questions to process in each batch (default: 4)
-- `--output_dir`: Custom output directory (default: "output/{model_id}")
-- `--prompt_type`: Specific prompt type to use (default: "all")
-- `--verbose`: Enable verbose logging
-
-## Key Findings
-
-Our analysis of 17 LLMs across the three settings revealed:
-
-1. **Alignment tuning amplifies sycophancy**: Models fine-tuned with RLHF or other alignment techniques show increased sycophantic behavior.
-
-2. **Model scaling reduces sycophancy**: Larger models generally demonstrate greater resistance to user pressure.
-
-3. **Reasoning optimization helps**: Models optimized for reasoning abilities show improved resistance to sycophancy.
-
-4. **Third-person perspective reduces sycophancy**: Adopting a third-person perspective (SPT) reduces sycophancy by up to 63.8% in the debate setting.
-
-## Citation
-
-If you use SYCON-Bench in your research, please cite our paper:
-
-```
+```bibtex
 @misc{hong2025measuringsycophancylanguagemodels,
-      title={Measuring Sycophancy of Language Models in Multi-turn Dialogues}, 
-      author={Jiseung Hong and Grace Byun and Seungone Kim and Kai Shu},
-      year={2025},
-      eprint={2505.23840},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2505.23840}, 
+  title={Measuring Sycophancy of Language Models in Multi-turn Dialogues}, 
+  author={Jiseung Hong and Grace Byun and Seungone Kim and Kai Shu},
+  year={2025},
+  eprint={2505.23840},
+  archivePrefix={arXiv},
+  primaryClass={cs.CL},
+  url={https://arxiv.org/abs/2505.23840}
 }
 ```
 
+---
 
+## 📜 License
 
-## Model Compatibility Matrix
-
-| Model Family | Quantization | Chat Template | Dependencies |
-|--------------|--------------|---------------|--------------|
-| Llama        | 4-bit        | llama-2       | transformers, bitsandbytes |
-| Qwen         | 8-bit        | chatml        | transformers, accelerate   |
-| Gemma        | 16-bit       | gemma         | transformers               |
-| ...          | ...          | ...           | ...                        |
-
-
-
-## License
-
-Distributed under the MIT License. See [`LICENSE`](./LICENSE) for more information.
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
